@@ -111,6 +111,23 @@ table{width:100%;border-collapse:collapse;margin-top:24px}th,td{text-align:left;
   .account-actions input,.account-actions button{width:100%}
 }
 
+
+.photo-gallery{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:14px}
+.photo-card{border:1px solid var(--line);background:#fff}
+.photo-card img{display:block;width:100%;aspect-ratio:1/1;object-fit:cover;background:#f4f4f2}
+.photo-caption{padding:10px;font-size:13px;line-height:1.4}
+.photo-meta{padding:0 10px 10px;color:var(--muted);font-size:11px}
+.photo-upload{border-top:1px solid var(--line);margin-top:18px;padding-top:18px}
+.photo-upload-grid{display:grid;grid-template-columns:1fr 1fr auto;gap:10px;align-items:end}
+.photo-upload input[type="file"]{padding:8px;background:#fff}
+.photo-help{font-size:12px;color:var(--muted);line-height:1.45;margin-top:8px}
+.photo-delete{border:0;background:transparent;color:var(--muted);padding:0;text-decoration:underline;font-size:11px}
+@media(max-width:700px){
+  .photo-gallery{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .photo-upload-grid{grid-template-columns:1fr}
+  .photo-upload-grid button{width:100%}
+}
+
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
@@ -602,22 +619,26 @@ async function openCommunityRecipe(r){
  detail.classList.add('active');
  detail.innerHTML='<div class="empty">Loading recipe…</div>';
 
- let ratingRows=[], comments=[];
+ let ratingRows=[], comments=[], photos=[];
  try{
-   const [ratingRes,commentRes]=await Promise.all([
+   const [ratingRes,commentRes,photoRes]=await Promise.all([
      sb.from('ratings').select('id,rating,user_id').eq('recipe_id',r.communityId),
-     sb.from('comments').select('id,created_at,author_name,body,user_id').eq('recipe_id',r.communityId).order('created_at',{ascending:true})
+     sb.from('comments').select('id,created_at,author_name,body,user_id').eq('recipe_id',r.communityId).order('created_at',{ascending:true}),
+     sb.from('recipe_photos').select('id,created_at,image_url,caption,user_id,storage_path').eq('recipe_id',r.communityId).order('created_at',{ascending:false})
    ]);
    if(ratingRes.error) throw ratingRes.error;
    if(commentRes.error) throw commentRes.error;
-   ratingRows=ratingRes.data||[]; comments=commentRes.data||[];
+   if(photoRes.error) throw photoRes.error;
+   ratingRows=ratingRes.data||[]; comments=commentRes.data||[]; photos=photoRes.data||[];
  }catch(err){
    console.error(err);
  }
 
  const avg=ratingRows.length?(ratingRows.reduce((a,b)=>a+(Number(b.rating)||0),0)/ratingRows.length):0;
  const session=(await sb.auth.getSession()).data.session;
- const myUserId=session?.user?.id||null;
+ const myUser=session?.user||null;
+ const myUserId=myUser?.id||null;
+ const permanentUser=isPermanentUser(myUser);
  const myRating=ratingRows.find(x=>x.user_id===myUserId)?.rating||0;
  const flourRows=r.ingredients.filter(x=>x.type==='flour');
  const otherRows=r.ingredients.filter(x=>x.type!=='flour' && x.type!=='water');
@@ -663,6 +684,25 @@ async function openCommunityRecipe(r){
 
      <div>
        <div class="community-section" style="margin-top:0">
+         <h3>Community bakes <span style="color:var(--muted);font-weight:400">(${photos.length})</span></h3>
+         <div class="photo-gallery" id="photoGallery">
+           ${photos.length?photos.map(p=>photoHTML(p,myUserId)).join(''):'<div class="help">No bake photos yet. Be the first to share one.</div>'}
+         </div>
+         <div class="photo-upload">
+           ${permanentUser?`
+             <div class="photo-upload-grid">
+               <div><label>Photo</label><input id="photoFile" type="file" accept="image/jpeg,image/png,image/webp"></div>
+               <div><label>Caption (optional)</label><input id="photoCaption" maxlength="160" placeholder="Crumb, changes, bake notes…"></div>
+               <button class="primary" id="uploadPhoto">Share photo</button>
+             </div>
+             <div class="photo-help">JPEG, PNG, or WebP · maximum 5 MB.</div>
+           `:`
+             <div class="help"><b>Want to share a bake?</b> Sign in with your email under My Recipes first. Browsing photos does not require an account.</div>
+           `}
+         </div>
+       </div>
+
+       <div class="community-section">
          <h3>Comments <span style="color:var(--muted);font-weight:400">(${comments.length})</span></h3>
          <div id="commentsList">
            ${comments.length?comments.map(c=>commentHTML(c,myUserId)).join(''):'<div class="help">No comments yet.</div>'}
@@ -681,7 +721,91 @@ async function openCommunityRecipe(r){
  $('#detailSave').onclick=()=>{saveCommunityRecipe(r);alert('Recipe saved to My Recipes.')};
  $$('#starButtons button').forEach(btn=>btn.onclick=()=>submitRating(r,Number(btn.dataset.rating)));
  $('#postComment').onclick=()=>submitComment(r);
+ if($('#uploadPhoto')) $('#uploadPhoto').onclick=()=>uploadRecipePhoto(r);
+ $$('#photoGallery .photo-delete').forEach(btn=>btn.onclick=()=>deleteRecipePhoto(r,Number(btn.dataset.photoId),btn.dataset.storagePath||''));
  $$('#commentsList .delete-comment').forEach(btn=>btn.onclick=()=>deleteComment(r,Number(btn.dataset.commentId)));
+}
+
+
+function photoHTML(p,myUserId){
+ const caption=p.caption?`<div class="photo-caption">${esc(p.caption)}</div>`:'';
+ const date=new Date(p.created_at).toLocaleDateString(undefined,{year:'numeric',month:'short',day:'numeric'});
+ const canDelete=myUserId && p.user_id===myUserId;
+ return `<div class="photo-card">
+   <a href="${esc(p.image_url)}" target="_blank" rel="noopener"><img src="${esc(p.image_url)}" alt="Community bake photo" loading="lazy"></a>
+   ${caption}
+   <div class="photo-meta">${esc(date)}${canDelete?` · <button class="photo-delete" data-photo-id="${p.id}" data-storage-path="${esc(p.storage_path||'')}">Delete</button>`:''}</div>
+ </div>`;
+}
+
+async function uploadRecipePhoto(r){
+ const file=$('#photoFile')?.files?.[0];
+ const caption=($('#photoCaption')?.value||'').trim();
+ if(!file){alert('Please choose a photo first.');return}
+ if(!['image/jpeg','image/png','image/webp'].includes(file.type)){
+   alert('Please use a JPEG, PNG, or WebP image.');
+   return;
+ }
+ if(file.size>5*1024*1024){
+   alert('Please choose an image smaller than 5 MB.');
+   return;
+ }
+ const user=await getCurrentUser();
+ if(!isPermanentUser(user)){
+   alert('Please sign in with your email under My Recipes before sharing photos.');
+   return;
+ }
+ const btn=$('#uploadPhoto');
+ btn.disabled=true; btn.textContent='Uploading…';
+ try{
+   const ext=(file.name.split('.').pop()||'jpg').toLowerCase().replace(/[^a-z0-9]/g,'')||'jpg';
+   const unique=(crypto.randomUUID?crypto.randomUUID():(Date.now()+'-'+Math.random().toString(36).slice(2)));
+   const storagePath=`${user.id}/${r.communityId}/${unique}.${ext}`;
+
+   const {error:uploadError}=await sb.storage
+     .from('recipe-photos')
+     .upload(storagePath,file,{cacheControl:'3600',upsert:false,contentType:file.type});
+   if(uploadError) throw uploadError;
+
+   const {data:urlData}=sb.storage.from('recipe-photos').getPublicUrl(storagePath);
+   const imageUrl=urlData.publicUrl;
+
+   const {error:dbError}=await sb.from('recipe_photos').insert({
+     recipe_id:r.communityId,
+     user_id:user.id,
+     image_url:imageUrl,
+     storage_path:storagePath,
+     caption:caption||null
+   });
+   if(dbError){
+     await sb.storage.from('recipe-photos').remove([storagePath]);
+     throw dbError;
+   }
+   await openCommunityRecipe(r);
+ }catch(err){
+   console.error(err);
+   alert('I could not upload that photo: '+(err.message||err));
+   btn.disabled=false; btn.textContent='Share photo';
+ }
+}
+
+async function deleteRecipePhoto(r,photoId,storagePath){
+ if(!confirm('Delete this bake photo?')) return;
+ try{
+   const user=await getCurrentUser();
+   if(!isPermanentUser(user)) throw new Error('Please sign in again to delete this photo.');
+
+   if(storagePath){
+     const {error:storageError}=await sb.storage.from('recipe-photos').remove([storagePath]);
+     if(storageError) throw storageError;
+   }
+   const {error:dbError}=await sb.from('recipe_photos').delete().eq('id',photoId);
+   if(dbError) throw dbError;
+   await openCommunityRecipe(r);
+ }catch(err){
+   console.error(err);
+   alert('I could not delete that photo: '+(err.message||err));
+ }
 }
 
 function commentHTML(c,myUserId){
