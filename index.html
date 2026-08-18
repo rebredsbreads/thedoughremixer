@@ -1052,6 +1052,10 @@ async function saveCommunityModal(){
      alert('Community recipe updated.');
    }else{
      const r=communityModalRecipe;
+     if(!r) throw new Error('No recipe is selected to publish. Please close this window and try again.');
+     if(file && !isPermanentUser(user)){
+       throw new Error('Please sign in with your email under My Recipes before publishing a cover photo. You can also remove the photo and publish without one.');
+     }
      btn.textContent='Publishing…';
      const payload={
        user_id:user.id, author_name:author, title,
@@ -1086,9 +1090,6 @@ async function saveCommunityModal(){
 
 async function shareRecipe(r){ openCommunityPublishModal(r); }
 
-$('#communityCancel').onclick=closeCommunityModal;
-$('#communityModal').onclick=e=>{if(e.target===$('#communityModal')) closeCommunityModal()};
-$('#communityPublish').onclick=saveCommunityModal;
 
 async function loadCommunityRecipes(){
  const {data,error}=await sb
@@ -1732,12 +1733,34 @@ updateImport();renderRecipes();renderCommunity();updateAccountUI();
       </div>
     </div>
     <div class="modal-actions">
-      <button id="communityCancel">Cancel</button>
-      <button class="primary" id="communityPublish">Publish Recipe</button>
+      <button type="button" id="communityCancel">Cancel</button>
+      <button type="button" class="primary" id="communityPublish">Publish Recipe</button>
     </div>
   </div>
 </div>
 
+<script>
+(function(){
+  const modal=document.getElementById('communityModal');
+  const cancel=document.getElementById('communityCancel');
+  const publish=document.getElementById('communityPublish');
+
+  if(cancel) cancel.addEventListener('click', closeCommunityModal);
+  if(publish) publish.addEventListener('click', saveCommunityModal);
+
+  if(modal){
+    modal.addEventListener('click', function(e){
+      if(e.target===modal) closeCommunityModal();
+    });
+  }
+
+  document.addEventListener('keydown', function(e){
+    if(e.key==='Escape' && modal && modal.classList.contains('active')){
+      closeCommunityModal();
+    }
+  });
+})();
+</script>
 
 <script>
 (function(){
