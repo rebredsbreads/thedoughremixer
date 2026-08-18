@@ -259,12 +259,186 @@ table{width:100%;border-collapse:collapse;margin-top:24px}th,td{text-align:left;
   .admin-actions button{width:100%}
 }
 
+
+.site-footer{
+  max-width:1050px;
+  margin:18px auto 0;
+  padding:22px 20px 34px;
+  border-top:1px solid var(--line);
+  text-align:center;
+  font-size:12px;
+  color:var(--muted);
+}
+.site-footer button{
+  border:0;
+  background:transparent;
+  padding:4px 8px;
+  min-height:auto;
+  font-size:12px;
+  color:var(--muted);
+  text-decoration:underline;
+  text-underline-offset:3px;
+}
+.info-modal-backdrop{
+  position:fixed;
+  inset:0;
+  background:rgba(0,0,0,.28);
+  display:none;
+  align-items:center;
+  justify-content:center;
+  padding:18px;
+  z-index:120;
+}
+.info-modal-backdrop.active{display:flex}
+.info-modal{
+  background:#fff;
+  border:1px solid var(--line);
+  width:min(640px,100%);
+  max-height:88vh;
+  overflow:auto;
+  padding:24px;
+}
+.info-modal h2{margin:0 0 14px;font-size:24px}
+.info-modal p,.info-modal li{line-height:1.6;font-size:14px}
+.info-modal ul{padding-left:20px}
+.info-modal-actions{display:flex;justify-content:flex-end;margin-top:18px}
+@media(max-width:700px){
+  .site-footer{padding:20px 12px calc(92px + env(safe-area-inset-bottom))}
+  .info-modal-backdrop{align-items:flex-end;padding:0}
+  .info-modal{
+    width:100%;
+    max-height:90vh;
+    border-left:0;border-right:0;border-bottom:0;
+    border-radius:16px 16px 0 0;
+    padding:20px 16px calc(20px + env(safe-area-inset-bottom));
+  }
+}
+
+
+@media(max-width:700px){
+  .recipe-card>div:last-child{grid-template-columns:1fr 1fr}
+  #cancelRecipeEdit{width:100%}
+}
+@media(max-width:390px){
+  .recipe-card>div:last-child{grid-template-columns:1fr 1fr}
+}
+
+
+/* v16 — restrained Warm Wheat visual pass */
+:root{
+  --wheat:#B98232;
+  --wheat-dark:#8F6423;
+  --wheat-soft:#E8D6B5;
+  --cream:#FAF6EE;
+  --cream-2:#F6EFE3;
+}
+
+/* Header + navigation */
+header{
+  border-bottom:1px solid var(--wheat-soft);
+}
+.tabs{
+  border-bottom-color:var(--wheat-soft);
+}
+.tabs button.active{
+  color:var(--wheat-dark);
+  border-bottom-color:var(--wheat);
+}
+
+/* Primary actions */
+button.primary,
+.button.primary{
+  background:var(--wheat);
+  border-color:var(--wheat);
+  color:#fff;
+}
+button.primary:hover,
+.button.primary:hover{
+  background:var(--wheat-dark);
+  border-color:var(--wheat-dark);
+}
+
+/* Secondary accents */
+button:not(.primary):not(.danger):not(.photo-delete):not(.photo-admin-delete):hover{
+  border-color:var(--wheat-soft);
+}
+a,
+.back-link{
+  text-decoration-color:var(--wheat-soft);
+}
+a:hover,
+.back-link:hover{
+  color:var(--wheat-dark);
+}
+
+/* Light visual warmth without redesign */
+.metric{
+  background:var(--cream);
+  border-color:var(--wheat-soft);
+}
+.account-box{
+  background:var(--cream);
+  border-color:var(--wheat-soft);
+}
+.community-section,
+.community-block{
+  border-top-color:var(--wheat-soft);
+}
+.community-tile{
+  border-color:var(--wheat-soft);
+}
+.community-tile:hover{
+  border-color:var(--wheat);
+}
+.info-modal,
+.modal{
+  border-color:var(--wheat-soft);
+}
+
+/* Footer */
+.site-footer{
+  border-top-color:var(--wheat-soft);
+}
+.site-footer button:hover{
+  color:var(--wheat-dark);
+}
+
+/* Forms */
+input:focus,
+select:focus,
+textarea:focus{
+  outline:2px solid rgba(185,130,50,.18);
+  border-color:var(--wheat);
+}
+
+/* Ratings and featured state */
+.star-buttons button{
+  color:var(--wheat-dark);
+}
+.admin-featured{
+  color:var(--wheat-dark);
+}
+
+/* Mobile: keep the same structure, just warm the active state */
+@media(max-width:700px){
+  .tabs{
+    border-top-color:var(--wheat-soft);
+  }
+  .tabs button.active{
+    color:var(--wheat-dark);
+    text-decoration-color:var(--wheat);
+  }
+  .card:has(.section-title)::before{
+    width:42px;
+  }
+}
+
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
 <header>
-  <h1>The Dough Remixer</h1>
+  <h1><span aria-hidden="true" style="color:var(--wheat);font-size:.78em;margin-right:.28em">↻</span>The Dough Remixer</h1>
   <div class="subtitle">convert sourdough recipes into baker’s percentages, scale them to your needs, and share them with others.</div>
   <div class="tabs">
     <button data-tab="import" class="active">1. Bring a Recipe</button>
@@ -293,8 +467,7 @@ table{width:100%;border-collapse:collapse;margin-top:24px}th,td{text-align:left;
       <div class="metric"><span>Original hydration</span><b id="mHydration">—</b></div>
       <div class="metric"><span>Original starter</span><b id="mStarterPct">—</b></div>
     </div>
-    <div class="notice"><b>Recipe flour</b> means the flour added directly to the dough. Flour contained inside the starter/levain is calculated separately, so changing starter hydration won’t throw off the final dough hydration.</div>
-    <div class="row-actions"><button class="primary" id="saveRecipe">Save formula</button></div>
+<div class="row-actions"><button class="primary" id="saveRecipe">Save formula</button><button id="cancelRecipeEdit" class="hidden">Cancel Edit</button></div>
   </div>
 </section>
 
@@ -691,6 +864,41 @@ function updateImport(){
 }
 $('#importStarterHydration').oninput=updateImport;
 
+let editingRecipeClientId=null;
+
+function resetImportForm(){
+  editingRecipeClientId=null;
+  $('#recipeName').value='';
+  $('#importStarterHydration').value='100';
+  $('#ingredientRows').innerHTML='';
+  [['Bread Flour',500,'flour'],['Water',350,'water'],['Starter',100,'starter'],['Salt',10,'other']].forEach(x=>addIngredient(...x));
+  $('#saveRecipe').textContent='Save formula';
+  $('#cancelRecipeEdit').classList.add('hidden');
+  updateImport();
+}
+
+function editSavedRecipe(r){
+  editingRecipeClientId=r.clientId;
+  $('#recipeName').value=r.name||'';
+  $('#importStarterHydration').value=Number(r.starterHydration)||0;
+  $('#ingredientRows').innerHTML='';
+  (r.ingredients||[]).forEach(ing=>{
+    const grams=(Number(ing.pct)||0)*(Number(r.baseFlour)||1000)/100;
+    addIngredient(ing.name||'Ingredient',Number(grams.toFixed(2)),ing.type||'other');
+  });
+  if(!(r.ingredients||[]).length) addIngredient();
+  $('#saveRecipe').textContent='Save Changes';
+  $('#cancelRecipeEdit').classList.remove('hidden');
+  updateImport();
+  switchTab('import');
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+$('#cancelRecipeEdit').onclick=()=>{
+  resetImportForm();
+  switchTab('recipes');
+};
+
 
 
 $('#saveRecipe').onclick=()=>{
@@ -701,17 +909,51 @@ $('#saveRecipe').onclick=()=>{
        water=rows.filter(x=>x.type==='water').reduce((a,b)=>a+b.grams,0),
        wet=rows.filter(x=>x.type==='wet').reduce((a,b)=>a+b.grams,0);
  const sh=starterHydration/100,sf=starter/(1+sh),sw=starter-sf, hydration=(water+wet+sw)/(baseFlour+sf)*100;
- const recipe={id:Date.now(),clientId:'local-'+Date.now()+'-'+Math.random().toString(36).slice(2,10),name,starterHydration,hydration,baseFlour,ingredients:rows.map(x=>({name:x.name,type:x.type,pct:x.grams/baseFlour*100}))};
- recipes.push(recipe); localStorage.setItem('doughFormulaRecipes',JSON.stringify(recipes));
- getCurrentUser().then(user=>{if(isPermanentUser(user)) syncRecipeToCloud(recipe,user).then(()=>localStorage.setItem('doughFormulaRecipes',JSON.stringify(recipes))).catch(console.error)});
- renderRecipes(); alert('Formula saved.'); switchTab('recipes');
+ const ingredients=rows.map(x=>({name:x.name,type:x.type,pct:x.grams/baseFlour*100}));
+
+ let recipe;
+ const isEditing=!!editingRecipeClientId;
+ if(isEditing){
+   recipe=recipes.find(x=>x.clientId===editingRecipeClientId);
+   if(!recipe){
+     alert('That saved recipe could not be found.');
+     resetImportForm();
+     return;
+   }
+   recipe.name=name;
+   recipe.starterHydration=starterHydration;
+   recipe.hydration=hydration;
+   recipe.baseFlour=baseFlour;
+   recipe.ingredients=ingredients;
+ }else{
+   recipe={
+     id:Date.now(),
+     clientId:'local-'+Date.now()+'-'+Math.random().toString(36).slice(2,10),
+     name,starterHydration,hydration,baseFlour,ingredients
+   };
+   recipes.push(recipe);
+ }
+
+ localStorage.setItem('doughFormulaRecipes',JSON.stringify(recipes));
+ getCurrentUser().then(user=>{
+   if(isPermanentUser(user)){
+     syncRecipeToCloud(recipe,user)
+       .then(()=>localStorage.setItem('doughFormulaRecipes',JSON.stringify(recipes)))
+       .catch(console.error);
+   }
+ });
+ renderRecipes();
+ alert(isEditing?'Recipe updated.':'Formula saved.');
+ resetImportForm();
+ switchTab('recipes');
 };
 
 function renderRecipes(refreshAccount=true){
  const box=$('#recipeList'); $('#exportRecipes').style.display=recipes.length?'inline-block':'none'; if(!recipes.length){box.innerHTML='<div class="empty">No saved formulas yet. Bring in a recipe first, then you can remix it here.</div>';return}
  box.innerHTML=''; recipes.forEach(r=>{
   const d=document.createElement('div');d.className='recipe-card';
-  d.innerHTML=`<div><b>${esc(r.name)}</b><div class="recipe-meta">${r.hydration.toFixed(1)}% hydration &nbsp;·&nbsp; ${sumPct(r,'starter').toFixed(1)}% starter${r.supabaseId?' &nbsp;·&nbsp; backed up':''}</div></div><div><button class="use">Remix</button> <button class="share">Share to Community</button> <button class="danger del">Delete</button></div>`;
+  d.innerHTML=`<div><b>${esc(r.name)}</b><div class="recipe-meta">${r.hydration.toFixed(1)}% hydration &nbsp;·&nbsp; ${sumPct(r,'starter').toFixed(1)}% starter${r.supabaseId?' &nbsp;·&nbsp; backed up':''}</div></div><div><button class="edit-local">Edit</button> <button class="use">Remix</button> <button class="share">Share to Community</button> <button class="danger del">Delete</button></div>`;
+  d.querySelector('.edit-local').onclick=()=>editSavedRecipe(r);
   d.querySelector('.use').onclick=()=>{switchTab('calculator');$('#calcRecipe').value=r.id;loadRecipeDefaults();calculate()};
   d.querySelector('.share').onclick=()=>shareRecipe(r);
   d.querySelector('.del').onclick=async ()=>{
@@ -1513,4 +1755,111 @@ updateImport();renderRecipes();renderCommunity();updateAccountUI();
 })();
 </script>
 
+
+<footer class="site-footer">
+  <button data-info-modal="aboutModal">About</button>
+  <span>·</span>
+  <button data-info-modal="privacyModal">Privacy</button>
+  <span>·</span>
+  <button data-info-modal="guidelinesModal">Community Guidelines</button>
+</footer>
+
+<div id="aboutModal" class="info-modal-backdrop" aria-hidden="true">
+  <div class="info-modal" role="dialog" aria-modal="true" aria-labelledby="aboutTitle">
+    <h2 id="aboutTitle">About The Dough Remixer</h2>
+    <p>The Dough Remixer helps sourdough bakers take recipes they already use, convert them into baker’s percentages, scale them, and adjust flour amount, starter hydration, and dough hydration.</p>
+    <p>You can keep recipes private in My Recipes or choose to share your own recipes with the community for others to save, rate, comment on, and remix.</p>
+    <div class="info-modal-actions"><button class="info-close">Close</button></div>
+  </div>
+</div>
+
+<div id="privacyModal" class="info-modal-backdrop" aria-hidden="true">
+  <div class="info-modal" role="dialog" aria-modal="true" aria-labelledby="privacyTitle">
+    <h2 id="privacyTitle">Privacy</h2>
+    <p>You can use the calculator without creating an account. Recipes saved as a guest are stored on your device.</p>
+    <p>If you choose to sign in with email, your private recipes can be backed up and synced across devices. Account authentication is handled through Supabase, and sign-in emails are delivered through Resend.</p>
+    <p>Private recipes are not shown in Community Recipes unless you explicitly choose to share them. Community posts, comments, ratings, and photos are public by design.</p>
+    <p>The site does not require a password and does not store payment information.</p>
+    <div class="info-modal-actions"><button class="info-close">Close</button></div>
+  </div>
+</div>
+
+<div id="guidelinesModal" class="info-modal-backdrop" aria-hidden="true">
+  <div class="info-modal" role="dialog" aria-modal="true" aria-labelledby="guidelinesTitle">
+    <h2 id="guidelinesTitle">Community Guidelines</h2>
+    <ul>
+      <li>Only share recipes you created yourself or have permission to share.</li>
+      <li>Only upload photos that you own or have permission to post.</li>
+      <li>Be respectful in comments and feedback.</li>
+      <li>Do not post spam, advertising, abusive material, or unsafe content.</li>
+      <li>If you see content that violates these guidelines, use the Report option so it can be reviewed.</li>
+    </ul>
+    <div class="info-modal-actions"><button class="info-close">Close</button></div>
+  </div>
+</div>
+
+
+<script>
+(function(){
+  document.querySelectorAll('[data-info-modal]').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      const modal=document.getElementById(btn.dataset.infoModal);
+      if(modal){
+        modal.classList.add('active');
+        modal.setAttribute('aria-hidden','false');
+      }
+    });
+  });
+  document.querySelectorAll('.info-close').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      const modal=btn.closest('.info-modal-backdrop');
+      modal.classList.remove('active');
+      modal.setAttribute('aria-hidden','true');
+    });
+  });
+  document.querySelectorAll('.info-modal-backdrop').forEach(modal=>{
+    modal.addEventListener('click',e=>{
+      if(e.target===modal){
+        modal.classList.remove('active');
+        modal.setAttribute('aria-hidden','true');
+      }
+    });
+  });
+})();
+</script>
+
 </body></html>
+
+<style>
+/* v16.3 unified lower info boxes for pages 1 and 4 */
+.metrics{
+  gap:0;
+  background:#f8f2e8;
+  border:1px solid var(--wheat-soft);
+  border-radius:2px;
+  overflow:hidden;
+}
+.metric{
+  background:transparent;
+  border:0;
+  box-shadow:none;
+  border-radius:0;
+  padding:14px 16px;
+}
+.metric + .metric{
+  border-left:1px solid var(--wheat-soft);
+}
+
+@media(max-width:700px){
+  .metrics{
+    border-radius:2px;
+  }
+  .metric{
+    padding:13px 14px;
+  }
+  .metric + .metric{
+    border-left:0;
+    border-top:1px solid var(--wheat-soft);
+  }
+}
+</style>
