@@ -128,13 +128,52 @@ table{width:100%;border-collapse:collapse;margin-top:24px}th,td{text-align:left;
   .photo-upload-grid button{width:100%}
 }
 
+
+.community-sections{display:grid;gap:34px}
+.community-block{border-top:1px solid var(--line);padding-top:20px}
+.community-block:first-child{border-top:0;padding-top:0}
+.community-block h3{margin:0 0 14px;font-size:18px}
+.community-cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.community-tile{border:1px solid var(--line);background:#fff;display:flex;flex-direction:column;min-width:0}
+.community-cover{width:100%;aspect-ratio:4/3;object-fit:cover;background:#f3f2ef;border-bottom:1px solid var(--line)}
+.community-cover.placeholder{display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:12px}
+.community-tile-body{padding:14px;display:flex;flex-direction:column;gap:8px;flex:1}
+.community-tile-title{font-size:17px;font-weight:650;letter-spacing:-.01em}
+.community-tile-meta{font-size:12px;color:var(--muted);line-height:1.45}
+.community-tile-desc{font-size:13px;line-height:1.45;color:var(--ink)}
+.community-tile-actions{display:flex;gap:8px;margin-top:auto;padding-top:5px}
+.community-tile-actions button{flex:1}
+.modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.28);display:none;align-items:center;justify-content:center;padding:18px;z-index:100}
+.modal-backdrop.active{display:flex}
+.modal{background:#fff;border:1px solid var(--line);width:min(620px,100%);max-height:90vh;overflow:auto;padding:22px}
+.modal h2{margin:0 0 16px}
+.modal-grid{display:grid;gap:14px}
+.modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:18px}
+.modal textarea{width:100%;min-height:92px;border:1px solid var(--line);padding:10px;font:inherit;resize:vertical}
+.owner-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.updated-note{font-size:12px;color:var(--muted);margin-top:5px}
+@media(max-width:850px){.community-cards{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:700px){
+ .community-cards{grid-template-columns:1fr}
+ .modal{padding:18px}
+ .modal-actions{display:grid;grid-template-columns:1fr 1fr}
+}
+
+
+.report-link{border:0;background:transparent;color:var(--muted);padding:0;text-decoration:underline;text-underline-offset:3px;font-size:11px}
+.report-panel{display:none;border-top:1px solid var(--line);margin-top:10px;padding-top:12px}
+.report-panel.active{display:block}
+.report-panel select,.report-panel textarea{width:100%;margin-top:8px}
+.report-panel textarea{min-height:70px;border:1px solid var(--line);padding:9px;font:inherit;resize:vertical}
+.report-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:8px}
+
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
 <header>
   <h1>The Dough Remixer</h1>
-  <div class="subtitle">Convert sourdough recipes into baker’s percentages, scale them to your needs, and share them with others.</div>
+  <div class="subtitle">convert sourdough recipes into baker’s percentages, scale them to your needs, and share them with others.</div>
   <div class="tabs">
     <button data-tab="import" class="active">1. Bring a Recipe</button>
     <button data-tab="recipes">2. My Recipes</button>
@@ -515,42 +554,144 @@ function renderRecipes(refreshAccount=true){
   box.appendChild(d);
  });
 }
-async function shareRecipe(r){
- const author=(prompt('What name should appear with this recipe? (You can use a first name or baking nickname.)', localStorage.getItem('doughRemixerAuthor')||'')||'').trim();
- if(!author) return;
+
+let communityModalRecipe=null;
+let communityEditRecipe=null;
+
+function openCommunityPublishModal(r){
+ communityModalRecipe=r;
+ communityEditRecipe=null;
+ $('#communityModalTitle').textContent='Share with the community';
+ $('#communityTitle').value=r.name||'';
+ $('#communityAuthor').value=localStorage.getItem('doughRemixerAuthor')||'';
+ $('#communityDescription').value='';
+ $('#communityCover').value='';
+ $('#communityPublish').textContent='Publish Recipe';
+ $('#communityModal').classList.add('active');
+ $('#communityModal').setAttribute('aria-hidden','false');
+}
+
+function openCommunityEditModal(r){
+ communityModalRecipe=null;
+ communityEditRecipe=r;
+ $('#communityModalTitle').textContent='Edit community recipe';
+ $('#communityTitle').value=r.name||'';
+ $('#communityAuthor').value=r.authorName||localStorage.getItem('doughRemixerAuthor')||'';
+ $('#communityDescription').value=r.description||'';
+ $('#communityCover').value='';
+ $('#communityPublish').textContent='Save Changes';
+ $('#communityModal').classList.add('active');
+ $('#communityModal').setAttribute('aria-hidden','false');
+}
+
+function closeCommunityModal(){
+ $('#communityModal').classList.remove('active');
+ $('#communityModal').setAttribute('aria-hidden','true');
+ communityModalRecipe=null; communityEditRecipe=null;
+}
+
+async function uploadCoverPhoto(file,user,recipeId){
+ if(!file) return null;
+ if(!isPermanentUser(user)) throw new Error('Please sign in with your email under My Recipes before adding a cover photo.');
+ if(!['image/jpeg','image/png','image/webp'].includes(file.type)) throw new Error('Please use a JPEG, PNG, or WebP image.');
+ if(file.size>5*1024*1024) throw new Error('Please choose an image smaller than 5 MB.');
+ const ext=(file.name.split('.').pop()||'jpg').toLowerCase().replace(/[^a-z0-9]/g,'')||'jpg';
+ const unique=(crypto.randomUUID?crypto.randomUUID():(Date.now()+'-'+Math.random().toString(36).slice(2)));
+ const path=`${user.id}/covers/${recipeId}-${unique}.${ext}`;
+ const {error}=await sb.storage.from('recipe-photos').upload(path,file,{cacheControl:'3600',upsert:false,contentType:file.type});
+ if(error) throw error;
+ const {data}=sb.storage.from('recipe-photos').getPublicUrl(path);
+ return {url:data.publicUrl,path};
+}
+
+async function saveCommunityModal(){
+ const title=($('#communityTitle').value||'').trim();
+ const author=($('#communityAuthor').value||'').trim();
+ const description=($('#communityDescription').value||'').trim();
+ const file=$('#communityCover').files?.[0]||null;
+ if(!title){alert('Please give the recipe a name.');return}
+ if(!author){alert('Please add a display name.');return}
  localStorage.setItem('doughRemixerAuthor',author);
+ const btn=$('#communityPublish'); btn.disabled=true;
  try{
    const user=await ensureAnonymousUser();
-   const payload={
-     user_id:user.id,
-     author_name:author,
-     title:r.name,
-     starter_hydration:Number(r.starterHydration)||0,
-     dough_hydration:Number(r.hydration)||0,
-     original_flour:Number(r.baseFlour)||1000,
-     ingredients:r.ingredients,
-     published:true
-   };
-   const {error}=await sb.from('recipes').insert(payload);
-   if(error) throw error;
-   alert('Recipe shared to the Community.');
-   await renderCommunity();
+   if(communityEditRecipe){
+     const r=communityEditRecipe;
+     btn.textContent='Saving…';
+     if(user.id!==r.ownerId) throw new Error('You can only edit recipes you published.');
+     let coverUrl=r.coverPhotoUrl||'', coverPath=r.coverStoragePath||'';
+     if(file){
+       const uploaded=await uploadCoverPhoto(file,user,r.communityId);
+       if(r.coverStoragePath) await sb.storage.from('recipe-photos').remove([r.coverStoragePath]);
+       coverUrl=uploaded.url; coverPath=uploaded.path;
+     }
+     const {error}=await sb.from('recipes').update({
+       title,author_name:author,description,
+       cover_photo_url:coverUrl||null,
+       cover_storage_path:coverPath||null,
+       updated_at:new Date().toISOString()
+     }).eq('id',r.communityId);
+     if(error) throw error;
+     closeCommunityModal();
+     await renderCommunity();
+     alert('Community recipe updated.');
+   }else{
+     const r=communityModalRecipe;
+     btn.textContent='Publishing…';
+     const payload={
+       user_id:user.id, author_name:author, title,
+       description:description||null,
+       starter_hydration:Number(r.starterHydration)||0,
+       dough_hydration:Number(r.hydration)||0,
+       original_flour:Number(r.baseFlour)||1000,
+       ingredients:r.ingredients, published:true
+     };
+     const {data,error}=await sb.from('recipes').insert(payload).select('id').single();
+     if(error) throw error;
+     if(file){
+       const uploaded=await uploadCoverPhoto(file,user,data.id);
+       const {error:updateErr}=await sb.from('recipes').update({
+         cover_photo_url:uploaded.url,
+         cover_storage_path:uploaded.path
+       }).eq('id',data.id);
+       if(updateErr) throw updateErr;
+     }
+     closeCommunityModal();
+     await renderCommunity();
+     alert('Recipe shared to the Community.');
+   }
  }catch(err){
    console.error(err);
-   alert('I could not share this recipe yet: '+(err.message||err));
+   alert('I could not save this community recipe: '+(err.message||err));
+ }finally{
+   btn.disabled=false;
+   btn.textContent=communityEditRecipe?'Save Changes':'Publish Recipe';
  }
 }
+
+async function shareRecipe(r){ openCommunityPublishModal(r); }
+
+$('#communityCancel').onclick=closeCommunityModal;
+$('#communityModal').onclick=e=>{if(e.target===$('#communityModal')) closeCommunityModal()};
+$('#communityPublish').onclick=saveCommunityModal;
 
 async function loadCommunityRecipes(){
  const {data,error}=await sb
    .from('recipes')
-   .select('id,created_at,author_name,title,starter_hydration,dough_hydration,original_flour,ingredients')
+   .select('id,created_at,updated_at,user_id,author_name,title,description,cover_photo_url,cover_storage_path,featured,starter_hydration,dough_hydration,original_flour,ingredients')
    .eq('published',true)
    .order('created_at',{ascending:false});
  if(error) throw error;
  sharedRecipes=(data||[]).map(row=>({
    communityId:row.id,
    id:'community-'+row.id,
+   ownerId:row.user_id,
+   createdAt:row.created_at,
+   updatedAt:row.updated_at,
+   description:row.description||'',
+   coverPhotoUrl:row.cover_photo_url||'',
+   coverStoragePath:row.cover_storage_path||'',
+   featured:!!row.featured,
    name:row.title,
    authorName:row.author_name||'Anonymous baker',
    starterHydration:Number(row.starter_hydration)||0,
@@ -566,9 +707,8 @@ async function renderCommunity(){
  detail.classList.remove('active'); detail.innerHTML='';
  box.style.display='block';
  box.innerHTML='<div class="empty">Loading community recipes…</div>';
- try{
-   await loadCommunityRecipes();
- }catch(err){
+ try{ await loadCommunityRecipes(); }
+ catch(err){
    console.error(err);
    box.innerHTML='<div class="empty">Community recipes could not be loaded.<br><small>'+esc(err.message||String(err))+'</small></div>';
    return;
@@ -578,23 +718,61 @@ async function renderCommunity(){
    return;
  }
  const ids=sharedRecipes.map(r=>r.communityId);
- const {data:ratingRows}=await sb.from('ratings').select('recipe_id,rating').in('recipe_id',ids);
+ const {data:ratingRows,error:ratingError}=await sb.from('ratings').select('recipe_id,rating').in('recipe_id',ids);
+ if(ratingError) console.error(ratingError);
  const summaries={};
  (ratingRows||[]).forEach(x=>{
    const a=summaries[x.recipe_id]||(summaries[x.recipe_id]={sum:0,count:0});
    a.sum+=Number(x.rating)||0;a.count++;
  });
- box.innerHTML='';
  sharedRecipes.forEach(r=>{
    const rs=summaries[r.communityId]||{sum:0,count:0};
-   const avg=rs.count?(rs.sum/rs.count).toFixed(1):'—';
-   const d=document.createElement('div'); d.className='recipe-card';
-   d.innerHTML=`<div><b>${esc(r.name)}</b><div class="recipe-meta">by ${esc(r.authorName)} &nbsp;·&nbsp; ${r.hydration.toFixed(1)}% hydration &nbsp;·&nbsp; ${sumPct(r,'starter').toFixed(1)}% starter &nbsp;·&nbsp; ★ ${avg}${rs.count?` (${rs.count})`:''}</div></div>
-   <div><button class="view-community">View recipe</button><button class="community-remix">Remix</button></div>`;
-   d.querySelector('.view-community').onclick=()=>openCommunityRecipe(r);
-   d.querySelector('.community-remix').onclick=()=>remixCommunityRecipe(r);
-   box.appendChild(d);
+   r.ratingCount=rs.count;
+   r.ratingAverage=rs.count?rs.sum/rs.count:0;
  });
+
+ const featured=sharedRecipes.filter(r=>r.featured).slice(0,6);
+ const highlyRated=sharedRecipes.filter(r=>r.ratingCount>=3)
+   .sort((a,b)=>(b.ratingAverage-a.ratingAverage)||(b.ratingCount-a.ratingCount)).slice(0,6);
+ const newest=[...sharedRecipes].sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt)).slice(0,6);
+
+ const section=(title,items,emptyText)=>`
+   <div class="community-block">
+     <h3>${title}</h3>
+     ${items.length?`<div class="community-cards">${items.map(communityTileHTML).join('')}</div>`:`<div class="help">${emptyText}</div>`}
+   </div>`;
+
+ box.innerHTML=`<div class="community-sections">
+   ${section('Featured',featured,'Featured recipes will appear here as the collection grows.')}
+   ${section('Highly Rated',highlyRated,'Recipes will appear here once they have at least 3 ratings.')}
+   ${section('Newest Recipes',newest,'No recipes yet.')}
+ </div>`;
+
+ $$('#communityList .view-community').forEach(btn=>btn.onclick=()=>{
+   const r=sharedRecipes.find(x=>String(x.communityId)===btn.dataset.id); if(r) openCommunityRecipe(r);
+ });
+ $$('#communityList .community-remix').forEach(btn=>btn.onclick=()=>{
+   const r=sharedRecipes.find(x=>String(x.communityId)===btn.dataset.id); if(r) remixCommunityRecipe(r);
+ });
+}
+
+function communityTileHTML(r){
+ const rating=r.ratingCount?`★ ${r.ratingAverage.toFixed(1)} (${r.ratingCount})`:'No ratings yet';
+ const cover=r.coverPhotoUrl
+   ? `<img class="community-cover" src="${esc(r.coverPhotoUrl)}" alt="${esc(r.name)}" loading="lazy">`
+   : `<div class="community-cover placeholder">No photo</div>`;
+ return `<div class="community-tile">
+   ${cover}
+   <div class="community-tile-body">
+     <div class="community-tile-title">${esc(r.name)}</div>
+     <div class="community-tile-meta">by ${esc(r.authorName)} · ${r.hydration.toFixed(1)}% hydration · ${rating}</div>
+     ${r.description?`<div class="community-tile-desc">${esc(r.description)}</div>`:''}
+     <div class="community-tile-actions">
+       <button class="view-community" data-id="${r.communityId}">View</button>
+       <button class="community-remix" data-id="${r.communityId}">Remix</button>
+     </div>
+   </div>
+ </div>`;
 }
 
 function saveCommunityRecipe(r){
@@ -639,16 +817,21 @@ async function openCommunityRecipe(r){
  const myUser=session?.user||null;
  const myUserId=myUser?.id||null;
  const permanentUser=isPermanentUser(myUser);
+ const isOwner=!!(myUserId && r.ownerId===myUserId);
  const myRating=ratingRows.find(x=>x.user_id===myUserId)?.rating||0;
  const flourRows=r.ingredients.filter(x=>x.type==='flour');
  const otherRows=r.ingredients.filter(x=>x.type!=='flour' && x.type!=='water');
 
  detail.innerHTML=`
    <button class="back-link" id="backCommunity">← Back to community recipes</button>
+   ${r.coverPhotoUrl?`<img src="${esc(r.coverPhotoUrl)}" alt="${esc(r.name)}" style="width:100%;max-height:420px;object-fit:cover;border:1px solid var(--line);margin-bottom:20px">`:''}
    <div class="detail-topline">
      <div>
        <div class="detail-title">${esc(r.name)}</div>
        <div class="detail-author">Shared by ${esc(r.authorName)}</div>
+       ${r.description?`<div style="max-width:680px;line-height:1.55;margin-top:10px">${esc(r.description)}</div>`:''}
+       ${r.updatedAt?`<div class="updated-note">Updated ${new Date(r.updatedAt).toLocaleDateString()}</div>`:''}
+       ${isOwner?`<div class="owner-actions"><button id="editCommunityRecipe">Edit Recipe</button><button class="danger" id="deleteCommunityRecipe">Delete Recipe</button></div>`:''}
      </div>
      <div class="rating-summary"><strong>${avg?avg.toFixed(1):'—'}</strong><span>★ · ${ratingRows.length} rating${ratingRows.length===1?'':'s'}</span></div>
    </div>
@@ -663,6 +846,7 @@ async function openCommunityRecipe(r){
      <button class="primary" id="detailRemix">Remix this recipe</button>
      <button id="detailSave">Save to My Recipes</button>
    </div>
+   <div style="margin-top:-8px;margin-bottom:18px">${reportBlock('recipe',r.communityId)}</div>
 
    <div class="detail-grid">
      <div>
@@ -719,13 +903,93 @@ async function openCommunityRecipe(r){
  $('#backCommunity').onclick=()=>renderCommunity();
  $('#detailRemix').onclick=()=>remixCommunityRecipe(r);
  $('#detailSave').onclick=()=>{saveCommunityRecipe(r);alert('Recipe saved to My Recipes.')};
+ if($('#editCommunityRecipe')) $('#editCommunityRecipe').onclick=()=>openCommunityEditModal(r);
+ if($('#deleteCommunityRecipe')) $('#deleteCommunityRecipe').onclick=()=>deleteCommunityRecipe(r);
  $$('#starButtons button').forEach(btn=>btn.onclick=()=>submitRating(r,Number(btn.dataset.rating)));
  $('#postComment').onclick=()=>submitComment(r);
  if($('#uploadPhoto')) $('#uploadPhoto').onclick=()=>uploadRecipePhoto(r);
  $$('#photoGallery .photo-delete').forEach(btn=>btn.onclick=()=>deleteRecipePhoto(r,Number(btn.dataset.photoId),btn.dataset.storagePath||''));
  $$('#commentsList .delete-comment').forEach(btn=>btn.onclick=()=>deleteComment(r,Number(btn.dataset.commentId)));
+ bindReportControls(detail);
 }
 
+
+
+async function deleteCommunityRecipe(r){
+ if(!confirm('Delete this community recipe? Ratings, comments, and community bake photos attached to it will also be removed.')) return;
+ try{
+   const user=await getCurrentUser();
+   if(!user || user.id!==r.ownerId) throw new Error('You can only delete recipes you published.');
+   if(r.coverStoragePath) await sb.storage.from('recipe-photos').remove([r.coverStoragePath]);
+   const {error}=await sb.from('recipes').delete().eq('id',r.communityId);
+   if(error) throw error;
+   await renderCommunity();
+ }catch(err){
+   console.error(err);
+   alert('I could not delete this recipe: '+(err.message||err));
+ }
+}
+
+
+function reportBlock(type,id){
+ const key=`${type}-${id}`;
+ return `<div>
+   <button class="report-link" data-report-open="${esc(key)}">Report</button>
+   <div class="report-panel" id="report-${esc(key)}">
+     <label>Why are you reporting this?</label>
+     <select class="report-reason">
+       <option value="spam">Spam or advertising</option>
+       <option value="abuse">Harassment or abusive content</option>
+       <option value="unsafe">Unsafe or harmful content</option>
+       <option value="copyright">Copyright / not their content</option>
+       <option value="other">Other</option>
+     </select>
+     <textarea class="report-details" maxlength="500" placeholder="Optional details"></textarea>
+     <div class="report-actions">
+       <button type="button" class="report-cancel">Cancel</button>
+       <button type="button" class="primary report-submit" data-target-type="${esc(type)}" data-target-id="${esc(id)}">Send report</button>
+     </div>
+   </div>
+ </div>`;
+}
+
+function bindReportControls(root=document){
+ root.querySelectorAll('[data-report-open]').forEach(btn=>{
+   btn.onclick=()=>{
+     const panel=root.querySelector('#report-'+CSS.escape(btn.dataset.reportOpen));
+     if(panel) panel.classList.toggle('active');
+   };
+ });
+ root.querySelectorAll('.report-cancel').forEach(btn=>{
+   btn.onclick=()=>btn.closest('.report-panel')?.classList.remove('active');
+ });
+ root.querySelectorAll('.report-submit').forEach(btn=>{
+   btn.onclick=()=>submitReport(btn);
+ });
+}
+
+async function submitReport(btn){
+ const panel=btn.closest('.report-panel');
+ const reason=panel.querySelector('.report-reason').value;
+ const details=(panel.querySelector('.report-details').value||'').trim();
+ btn.disabled=true; btn.textContent='Sending…';
+ try{
+   const user=await ensureAnonymousUser();
+   const {error}=await sb.from('reports').insert({
+     reporter_user_id:user.id,
+     target_type:btn.dataset.targetType,
+     target_id:String(btn.dataset.targetId),
+     reason,
+     details:details||null
+   });
+   if(error) throw error;
+   panel.innerHTML='<div class="help">Thanks. Your report was submitted for review.</div>';
+ }catch(err){
+   console.error(err);
+   alert('I could not submit that report: '+(err.message||err));
+   btn.disabled=false; btn.textContent='Send report';
+ }
+}
 
 function photoHTML(p,myUserId){
  const caption=p.caption?`<div class="photo-caption">${esc(p.caption)}</div>`:'';
@@ -734,7 +998,7 @@ function photoHTML(p,myUserId){
  return `<div class="photo-card">
    <a href="${esc(p.image_url)}" target="_blank" rel="noopener"><img src="${esc(p.image_url)}" alt="Community bake photo" loading="lazy"></a>
    ${caption}
-   <div class="photo-meta">${esc(date)}${canDelete?` · <button class="photo-delete" data-photo-id="${p.id}" data-storage-path="${esc(p.storage_path||'')}">Delete</button>`:''}</div>
+   <div class="photo-meta">${esc(date)}${canDelete?` · <button class="photo-delete" data-photo-id="${p.id}" data-storage-path="${esc(p.storage_path||'')}">Delete</button>`:''} · ${reportBlock('photo',p.id)}</div>
  </div>`;
 }
 
@@ -811,7 +1075,10 @@ async function deleteRecipePhoto(r,photoId,storagePath){
 function commentHTML(c,myUserId){
  const date=new Date(c.created_at).toLocaleDateString(undefined,{year:'numeric',month:'short',day:'numeric'});
  return `<div class="comment-item">
-   <div class="comment-head"><span><b>${esc(c.author_name||'Anonymous baker')}</b> · ${esc(date)}</span>${myUserId && c.user_id===myUserId?`<button class="delete-comment" data-comment-id="${c.id}" style="border:0;padding:0;background:transparent;color:var(--muted);text-decoration:underline">Delete</button>`:''}</div>
+   <div class="comment-head">
+     <span><b>${esc(c.author_name||'Anonymous baker')}</b> · ${esc(date)}</span>
+     <span>${myUserId && c.user_id===myUserId?`<button class="delete-comment" data-comment-id="${c.id}" style="border:0;padding:0;background:transparent;color:var(--muted);text-decoration:underline">Delete</button> · `:''}${reportBlock('comment',c.id)}</span>
+   </div>
    <div class="comment-body">${esc(c.body)}</div>
  </div>`;
 }
@@ -1024,4 +1291,25 @@ function fmt(n){return Number(n.toFixed(1)).toLocaleString()}
 function esc(s){return String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
 updateImport();renderRecipes();renderCommunity();updateAccountUI();
 </script>
+
+<div id="communityModal" class="modal-backdrop" aria-hidden="true">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="communityModalTitle">
+    <h2 id="communityModalTitle">Share with the community</h2>
+    <div class="modal-grid">
+      <div><label>Recipe name</label><input id="communityTitle"></div>
+      <div><label>Your display name</label><input id="communityAuthor" placeholder="First name or baking nickname"></div>
+      <div><label>Short description (optional)</label><textarea id="communityDescription" maxlength="400" placeholder="What makes this recipe yours?"></textarea></div>
+      <div>
+        <label>Cover photo (optional)</label>
+        <input id="communityCover" type="file" accept="image/jpeg,image/png,image/webp">
+        <div class="photo-help">Signed-in users can add a JPEG, PNG, or WebP cover photo up to 5 MB.</div>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button id="communityCancel">Cancel</button>
+      <button class="primary" id="communityPublish">Publish Recipe</button>
+    </div>
+  </div>
+</div>
+
 </body></html>
