@@ -456,6 +456,33 @@ textarea:focus{
   }
 }
 
+
+/* v17 community browse/search */
+.community-search{
+  display:flex;
+  gap:10px;
+  align-items:center;
+  margin:0 0 16px;
+}
+.community-search input{
+  flex:1;
+  min-width:0;
+}
+.community-search-count{
+  font-size:12px;
+  color:var(--muted);
+  white-space:nowrap;
+}
+@media(max-width:700px){
+  .community-search{
+    display:block;
+  }
+  .community-search-count{
+    display:block;
+    margin-top:8px;
+  }
+}
+
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <link rel="icon" href="favicon.ico?v=3" sizes="any">
@@ -494,6 +521,7 @@ textarea:focus{
       <div class="metric"><span>Recipe flour</span><b id="mFlour">0 g</b></div>
       <div class="metric"><span>Original hydration</span><b id="mHydration">—</b></div>
       <div class="metric"><span>Original starter</span><b id="mStarterPct">—</b></div>
+      <div class="metric"><span>Total dough weight</span><b id="mDoughWeight">0 g</b></div>
     </div>
 <div class="row-actions"><button class="primary" id="saveRecipe">Save formula</button><button id="cancelRecipeEdit" class="hidden">Cancel Edit</button></div>
   </div>
@@ -549,7 +577,7 @@ textarea:focus{
     <div class="metrics" style="margin-top:18px">
       <div class="metric"><span>Starter/levain</span><b id="outStarter">—</b></div>
       <div class="metric"><span>Added water</span><b id="outWater">—</b></div>
-      <div class="metric"><span>Total dough</span><b id="outTotal">—</b></div>
+      <div class="metric"><span>Total dough weight</span><b id="outTotal">—</b></div>
       <div class="metric"><span>Final hydration</span><b id="outHydration">—</b></div>
     </div>
     <table>
@@ -888,7 +916,7 @@ function updateImport(){
  const sh=(+$('#importStarterHydration').value||0)/100, sf=starter/(1+sh), sw=starter-sf;
  const hydration=baseFlour+sf>0?(water+wet+sw)/(baseFlour+sf)*100:0;
  rows.forEach(x=>x.tr.querySelector('.pct').textContent=baseFlour?`${(x.grams/baseFlour*100).toFixed(1)}%`:'—');
- $('#mFlour').textContent=`${fmt(baseFlour)} g`; $('#mHydration').textContent=baseFlour?`${hydration.toFixed(1)}%`:'—'; $('#mStarterPct').textContent=baseFlour?`${(starter/baseFlour*100).toFixed(1)}%`:'—';
+ $('#mFlour').textContent=`${fmt(baseFlour)} g`; $('#mHydration').textContent=baseFlour?`${hydration.toFixed(1)}%`:'—'; $('#mStarterPct').textContent=baseFlour?`${(starter/baseFlour*100).toFixed(1)}%`:'—'; $('#mDoughWeight').textContent=`${fmt(rows.reduce((sum,x)=>sum+(Number(x.grams)||0),0))} g`;
 }
 $('#importStarterHydration').oninput=updateImport;
 
@@ -1186,18 +1214,54 @@ async function renderCommunity(){
      ${items.length?`<div class="community-cards">${items.map(communityTileHTML).join('')}</div>`:`<div class="help">${emptyText}</div>`}
    </div>`;
 
+ const allRecipes=[...sharedRecipes].sort((a,b)=>a.name.localeCompare(b.name));
+
  box.innerHTML=`<div class="community-sections">
    ${section('Featured',featured,'Featured recipes will appear here as the collection grows.')}
    ${section('Highly Rated',highlyRated,'Recipes will appear here once they have at least 3 ratings.')}
    ${section('Newest Recipes',newest,'No recipes yet.')}
+   <div class="community-block">
+     <h3>Browse All</h3>
+     <div class="community-search">
+       <input id="communitySearchInput" type="search" placeholder="Search recipes, bakers, or descriptions">
+       <span class="community-search-count" id="communitySearchCount"></span>
+     </div>
+     <div class="community-cards" id="browseAllRecipes"></div>
+   </div>
  </div>`;
 
- $$('#communityList .view-community').forEach(btn=>btn.onclick=()=>{
-   const r=sharedRecipes.find(x=>String(x.communityId)===btn.dataset.id); if(r) openCommunityRecipe(r);
- });
- $$('#communityList .community-remix').forEach(btn=>btn.onclick=()=>{
-   const r=sharedRecipes.find(x=>String(x.communityId)===btn.dataset.id); if(r) remixCommunityRecipe(r);
- });
+ const bindCommunityButtons=scope=>{
+   scope.querySelectorAll('.view-community').forEach(btn=>btn.onclick=()=>{
+     const r=sharedRecipes.find(x=>String(x.communityId)===btn.dataset.id); if(r) openCommunityRecipe(r);
+   });
+   scope.querySelectorAll('.community-remix').forEach(btn=>btn.onclick=()=>{
+     const r=sharedRecipes.find(x=>String(x.communityId)===btn.dataset.id); if(r) remixCommunityRecipe(r);
+   });
+ };
+
+ const browseBox=$('#browseAllRecipes');
+ const searchInput=$('#communitySearchInput');
+ const searchCount=$('#communitySearchCount');
+
+ const renderBrowseAll=()=>{
+   const q=(searchInput.value||'').trim().toLowerCase();
+   const filtered=!q?allRecipes:allRecipes.filter(r=>{
+     const haystack=[r.name,r.authorName,r.description]
+       .filter(Boolean).join(' ').toLowerCase();
+     return haystack.includes(q);
+   });
+
+   browseBox.innerHTML=filtered.length
+     ? filtered.map(communityTileHTML).join('')
+     : '<div class="help">No recipes match that search.</div>';
+
+   searchCount.textContent=`${filtered.length} recipe${filtered.length===1?'':'s'}`;
+   bindCommunityButtons(browseBox);
+ };
+
+ searchInput.addEventListener('input',renderBrowseAll);
+ renderBrowseAll();
+ bindCommunityButtons(box);
 }
 
 function communityTileHTML(r){
