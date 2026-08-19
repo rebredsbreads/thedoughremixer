@@ -433,12 +433,39 @@ textarea:focus{
   }
 }
 
+
+/* v16.5 favicon + header symbol */
+.brand-title{
+  display:flex;
+  align-items:center;
+  gap:12px;
+}
+.brand-mark{
+  width:40px;
+  height:40px;
+  object-fit:contain;
+  flex:0 0 auto;
+}
+@media(max-width:700px){
+  .brand-mark{
+    width:34px;
+    height:34px;
+  }
+  .brand-title{
+    gap:10px;
+  }
+}
+
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <link rel="icon" type="image/png" href="dough-remixer-symbol.png">
+  <link rel="apple-touch-icon" href="dough-remixer-symbol.png">
+
 </head>
 <body>
 <header>
-  <h1><span aria-hidden="true" style="color:var(--wheat);font-size:.78em;margin-right:.28em">↻</span>The Dough Remixer</h1>
+  <h1 class="brand-title"><img class="brand-mark" src="dough-remixer-symbol.png" alt="The Dough Remixer symbol"><span>The Dough Remixer</span></h1>
   <div class="subtitle">convert sourdough recipes into baker’s percentages, scale them to your needs, and share them with others.</div>
   <div class="tabs">
     <button data-tab="import" class="active">1. Bring a Recipe</button>
